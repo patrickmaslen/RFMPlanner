@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>SingleRegionReportDialog</class>
+ <widget class="QDialog" name="SingleRegionReportDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1217</width>
+    <height>569</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>808</width>
+    <height>0</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>Region Report</string>
+  </property>
+  <property name="modal">
+   <bool>false</bool>
+  </property>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>135</x>
+     <y>25</y>
+     <width>641</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>12</pointsize>
+     <weight>75</weight>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="text">
+    <string>Region Report</string>
+   </property>
+  </widget>
+  <widget class="QTableWidget" name="tbl_fma_type">
+   <property name="geometry">
+    <rect>
+     <x>55</x>
+     <y>95</y>
+     <width>1111</width>
+     <height>351</height>
+    </rect>
+   </property>
+   <property name="columnCount">
+    <number>9</number>
+   </property>
+   <attribute name="horizontalHeaderDefaultSectionSize">
+    <number>85</number>
+   </attribute>
+   <column>
+    <property name="text">
+     <string>FMA type</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Fuel types</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Area (ha)</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Area &gt;= t'hold</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>% below t'hold</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Target</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Burn needed</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Show all fuel</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Show overage fuel</string>
+    </property>
+   </column>
+  </widget>
+  <widget class="QPushButton" name="btn_close">
+   <property name="geometry">
+    <rect>
+     <x>455</x>
+     <y>490</y>
+     <width>75</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>10</pointsize>
+     <weight>75</weight>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="text">
+    <string>Close</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_csv">
+   <property name="geometry">
+    <rect>
+     <x>580</x>
+     <y>490</y>
+     <width>121</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>10</pointsize>
+     <weight>75</weight>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="text">
+    <string>Export csv</string>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="cbx_districts">
+   <property name="geometry">
+    <rect>
+     <x>140</x>
+     <y>60</y>
+     <width>211</width>
+     <height>27</height>
+    </rect>
+   </property>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

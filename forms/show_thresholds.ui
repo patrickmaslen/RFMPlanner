@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ListThresholdsDialog</class>
+ <widget class="QDialog" name="ListThresholdsDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>944</width>
+    <height>741</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Thresholds and Targets</string>
+  </property>
+  <widget class="QLabel" name="lbl_title">
+   <property name="geometry">
+    <rect>
+     <x>90</x>
+     <y>40</y>
+     <width>721</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>11</pointsize>
+     <weight>75</weight>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="text">
+    <string>Indicative fuel age thresholds</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignCenter</set>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_close">
+   <property name="geometry">
+    <rect>
+     <x>380</x>
+     <y>680</y>
+     <width>112</width>
+     <height>34</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <weight>75</weight>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="text">
+    <string>Close</string>
+   </property>
+   <property name="default">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QTableWidget" name="tbl_thresholds">
+   <property name="geometry">
+    <rect>
+     <x>70</x>
+     <y>110</y>
+     <width>801</width>
+     <height>501</height>
+    </rect>
+   </property>
+   <property name="sortingEnabled">
+    <bool>true</bool>
+   </property>
+   <property name="columnCount">
+    <number>7</number>
+   </property>
+   <column>
+    <property name="text">
+     <string>Fuel type</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Threshold age</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>SHS Target</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>CIB Target</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>LRR Target</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Update</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>+Exception (spatial)</string>
+    </property>
+   </column>
+  </widget>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>100</x>
+     <y>630</y>
+     <width>711</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Values of -1 indicate there is no threshold age / target set for that fuel type / FMA combination</string>
+   </property>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

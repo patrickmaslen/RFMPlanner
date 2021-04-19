@@ -1,0 +1,11 @@
+Region, Zone, FMA Type, Target, Reached t'hold, Area
+, SHS, 60, True, 47831.918615
+warren, LRR, 30, True, 5008.07468472
+warren, SHS, -1, False, 2.62690383212e-05
+warren, LRR, -1, False, 14637.1676741
+warren, SHS, 60, False, 15341.2396925
+warren, LRR, 45, False, 332576.878675
+warren, LRR, 45, True, 438016.920131
+warren, LRR, 30, False, 65498.97252
+warren, LRR, -1, None, 32981.0502792
+warren, SHS, -1, None, 1589.76475614
