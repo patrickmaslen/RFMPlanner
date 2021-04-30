@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>SelectExistingAssetTablesDialog</class>
- <widget class="QDialog" name="SelectExistingAssetTablesDialog">
+ <class>AssetNameSelectorDialog</class>
+ <widget class="QDialog" name="AssetNameSelectorDialog">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>478</width>
+    <width>512</width>
     <height>532</height>
    </rect>
   </property>
@@ -47,7 +47,7 @@
     <rect>
      <x>20</x>
      <y>30</y>
-     <width>441</width>
+     <width>461</width>
      <height>51</height>
     </rect>
    </property>
@@ -59,7 +59,7 @@
     </font>
    </property>
    <property name="text">
-    <string>Select asset names(s) to report on:</string>
+    <string>Select asset names(s) to show report for:</string>
    </property>
   </widget>
  </widget>
@@ -68,7 +68,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>accepted()</signal>
-   <receiver>SelectExistingAssetTablesDialog</receiver>
+   <receiver>AssetNameSelectorDialog</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -84,7 +84,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
-   <receiver>SelectExistingAssetTablesDialog</receiver>
+   <receiver>AssetNameSelectorDialog</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">

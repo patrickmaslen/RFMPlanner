@@ -157,7 +157,7 @@ def change_preferred_region(q):  # q is an instance of QAction
     update_preferred_region_menu(globals.preferred_region_menu)
     globals.preferred_region = q.text()
     update_regional_assets_menu(globals.update_assets_menu, True)
-    update_regional_assets_menu(globals.prioritise_menu, True)
+    #update_regional_assets_menu(globals.prioritise_menu, True)
 
 def get_regional_asset_layers(pref_rgn_only, type="asset"):
     # Returns list of asset layers for region (or whole of WA)
@@ -339,15 +339,8 @@ def create_fmas(warn_if_exists=True):
             for type in fma_types_in_fc:
                 if type[0] not in fma_types_in_fcs:
                     fma_types_in_fcs.append(type[0])
-        
-        #debug_msg_box('some test code starts 353')
-        #if not region_to_buffer in globals.forest_regions:
-        #    if 'LRR' in fma_types_in_fcs:
-        #        create_interim(current_fma, lower_priority_fmas)
-        #return
-            #    erase LRR_polys from interim_copy of region_fma_seed
-            #    insert LRR_polys into interim_copy of region_fma_seed
-        #remove 'LRR' from fma_types_in_fcs
+        if region_to_buffer in globals.forest_regions:
+            fma_types_in_fcs.remove('LRR')
 
         intersect_layers_info = []  # Will be filled with lists of 3 items each: region_to_buffer (text), fma_type (text) and intersect_layer (text - name of temp_intersect_tbl_name returned by calculate_buffers - e.g. ["warren", "CIB", "warren_intersects_cib"])
         for fma_type in fma_types_in_fcs:
@@ -379,12 +372,21 @@ def create_fmas(warn_if_exists=True):
             make_valid_sql = "UPDATE " + fma_layer_name + " SET geometry = ST_CollectionExtract(ST_MakeValid(geometry), 3) WHERE NOT ST_IsValid(geometry);"
             run_nonselect_sql([drop_sql, create_sql, index_sql, insert_sql, make_valid_sql, "ANALYZE " + fma_layer_name])
         # Takes about 5 sec to get here; at this point we have e.g. warren_fmas_cib and warren_fmas_shs
-        combined_fmas = combine_fmas_non_overlapping(region, fma_types_in_fcs)      # returns name of combined_fmas layer e.g. warren_fmas_combined
+        # Check whether region_fmas_lrr (for non-forest regions) and/or region_fmas_cib are empty - if so remove from fma_types_in_fcs
+        if region_to_buffer not in globals.forest_regions:
+            sql = "SELECT COUNT(*) FROM " + region_to_buffer + "_fmas_lrr"
+            count = run_select_sql(sql)
+            if count > 0:
+                fma_types_in_fcs.remove("LRR")
+        sql = "SELECT COUNT(*) FROM " + region_to_buffer + "_fmas_cib"
+        count = run_select_sql(sql)
+        if count > 0:
+            fma_types_in_fcs.remove("CIB")
+        
+        combined_fmas = combine_fmas_non_overlapping(region_to_buffer, fma_types_in_fcs)      # returns name of combined_fmas layer e.g. warren_fmas_combined
         complete_fmas(region_to_buffer)
         run_nonselect_sql(drop_list)
         QApplication.restoreOverrideCursor()
-        #now = datetime.datetime.now().strftime("%H:%M:%S")
-        #debug_msg_box("started " + start + "\nfinished " + now)
 
 def get_fcs_to_buffer(region):
     # Called by create_fmas
@@ -474,7 +476,7 @@ def check_asset_class_and_resilience_correctly_filled(fc):
         elif reply == QMessageBox.Cancel:
             return "stop"
 
-def calculate_buffers(region_to_buffer, fma_type, fcs_to_buffer):
+def calculate_buffers(region_to_buffer, fma_type, fcs_to_buffer, named_asset=False, gids=None):
     # Calculates a set of buffers for the region and the specified fma_type, based on the asset points, lines and polys
     # Called by create_fmas (once for each fma type)
     try:
@@ -506,19 +508,24 @@ def calculate_buffers(region_to_buffer, fma_type, fcs_to_buffer):
                 drop_list.append(drop_sql)
                 for fc in fcs_to_buffer:
                     if globals.prioritisation_on:
+                        # NB does not cover case for named assets
                         insert_sql = "INSERT INTO " + temp_buffer_tbl_name + " SELECT priority, ST_Multi((ST_Dump(ST_Union(ST_Buffer(geometry, " + str(buffer_distance[0]) + ")))).geom) FROM " + fc + " WHERE fma = '" + fma_type + "' GROUP BY priority"
                     else:
                         insert_sql = "INSERT INTO " + temp_buffer_tbl_name + " SELECT ST_Multi((ST_Dump(ST_Union(ST_Buffer(geometry, " + str(buffer_distance[0]) + ")))).geom) FROM " + fc + " WHERE fma = '" + fma_type + "'"
+                        if gids is not None:
+                            insert_sql += " AND gid IN " + gids
                     run_nonselect_sql([insert_sql])
                 make_valid_sql = "UPDATE " + temp_buffer_tbl_name + " SET geometry = ST_MakeValid(geometry) WHERE NOT ST_isValid(geometry);"
                 analyze_sql = "ANALYZE " + temp_buffer_tbl_name
                 run_nonselect_sql(["ALTER TABLE " + temp_buffer_tbl_name + " ADD COLUMN id SERIAL PRIMARY KEY;", make_valid_sql, analyze_sql])
-                
-                calculate_intersects(region_to_buffer, fma_type, str(buffer_distance[0]), temp_buffer_tbl_name, temp_intersect_tbl_name)
+                if not named_asset:
+                    calculate_intersects(region_to_buffer, fma_type, str(buffer_distance[0]), temp_buffer_tbl_name, temp_intersect_tbl_name)
+                else:
+                    region = globals.preferred_region.lower().replace(" ", "_")
+                    calculate_intersects(region, fma_type, str(buffer_distance[0]), temp_buffer_tbl_name, temp_intersect_tbl_name)
         run_nonselect_sql(["ALTER TABLE " + temp_intersect_tbl_name + " ADD COLUMN id SERIAL PRIMARY KEY;"])
         if globals.prioritisation_on:
             handle_overlapping_intersects(temp_intersect_tbl_name)
-        #iface.mainWindow().statusBar().showMessage("calculate_buffers")
         run_nonselect_sql(drop_list)
         iface.mainWindow().statusBar().showMessage("calculate_buffers done")
         QApplication.restoreOverrideCursor()
@@ -545,7 +552,6 @@ def calculate_intersects(region_to_buffer, fma_type, buffer_distance, temp_buffe
         insert_sql = insert_sql.replace("buffer_distance", buffer_distance)
         make_valid_sql = "UPDATE " + temp_intersect_tbl_name + " SET geometry = ST_Multi(ST_CollectionExtract(ST_MakeValid(geometry), 3)) WHERE NOT ST_isValid(geometry);"
         run_nonselect_sql([insert_sql, make_valid_sql, "ANALYZE " + temp_intersect_tbl_name])
-        #debug_msg_box(temp_intersect_tbl_name + " updated for " + fma_type + ' and ' +  buffer_distance)
     except Exception as e:
         QApplication.restoreOverrideCursor()
         QMessageBox.information(None, "Failed to calculate intersects", 
@@ -570,7 +576,7 @@ def combine_fmas_non_overlapping(region, fma_types_in_fcs):
     fma_seed = region + "_fma_seed"     # Originally referred to PG table containing Glen Daniel's RAM + LRR FMAs; these tables were updated to show all dept land as 'RAM' in non-forest regions, and as 'LRR in forest regions. These seeds are used as starting point to generate full FMAs.
     latest_layer = ""   # Stores name of latest PG layer created by create_interim
     drop = False    # Tracks if a PG table needs dropping
-    if "LRR" in fma_types_in_fcs:
+    if "LRR" in fma_types_in_fcs and not region in globals.forest_regions:
         latest_layer = create_interim(region + "_fmas_lrr", fma_seed)
         drop = True
     if "CIB" in fma_types_in_fcs:
@@ -596,6 +602,45 @@ def combine_fmas_non_overlapping(region, fma_types_in_fcs):
     QApplication.restoreOverrideCursor()
     iface.mainWindow().statusBar().showMessage("")
     return region + "_fmas_combined"
+    
+def combine_fmas_non_overlapping_named_asset(asset_name, fma_types_in_fcs):
+    # Called by create_fmas
+    iface.mainWindow().statusBar().showMessage("combine_fmas_non_overlapping") 
+    QApplication.setOverrideCursor(QCursor(QtCore.Qt.WaitCursor))
+    latest_layer = ""   # Stores name of latest PG layer created by create_interim
+    drop = False    # Tracks if a PG table needs dropping
+    if "LRR" in fma_types_in_fcs:
+        latest_layer = asset_name + "_fmas_lrr"
+        column_rename_sql = "ALTER TABLE " + latest_layer + " RENAME COLUMN fma TO fma_type"
+        run_nonselect_sql([column_rename_sql])
+        drop = True
+    if "CIB" in fma_types_in_fcs:
+        if latest_layer == "":
+            latest_layer = asset_name + "_fmas_cib"
+            column_rename_sql = "ALTER TABLE " + latest_layer + " RENAME COLUMN fma TO fma_type"
+            run_nonselect_sql([column_rename_sql])
+        else:
+            old_layer = latest_layer
+            latest_layer = create_interim(asset_name + "_fmas_cib", latest_layer)
+            if drop:
+                run_nonselect_sql(["DROP TABLE IF EXISTS " + old_layer])
+            drop = True
+    if "SHS" in fma_types_in_fcs:
+        if latest_layer == "":
+            latest_layer = asset_name + "_fmas_shs"
+            column_rename_sql = "ALTER TABLE " + latest_layer + " RENAME COLUMN fma TO fma_type"
+            run_nonselect_sql([column_rename_sql])
+        else:
+            old_layer = latest_layer
+            latest_layer = create_interim(asset_name + "_fmas_shs", latest_layer)
+            if drop:
+                run_nonselect_sql(["DROP TABLE IF EXISTS " + old_layer])
+    run_nonselect_sql(["DROP TABLE IF EXISTS " + asset_name + "_fmas_combined"])
+    run_nonselect_sql(["ALTER TABLE " + latest_layer + " RENAME TO " + asset_name + "_fmas_combined"])
+    iface.mainWindow().statusBar().showMessage("loading " + asset_name + "_fmas_combined") 
+    QApplication.restoreOverrideCursor()
+    iface.mainWindow().statusBar().showMessage("")
+    return asset_name + "_fmas_combined"
 
 def create_interim(current_fma, lower_priority_fmas):
     # Called by combine_fmas_non_overlapping
@@ -611,19 +656,19 @@ def create_interim(current_fma, lower_priority_fmas):
     run_nonselect_sql([sql, "ANALYZE " + tbl_name])
     return tbl_name
 
-def complete_fmas(region):
+def complete_fmas(region_or_asset_name):
     # Called by create_fmas
     iface.mainWindow().statusBar().showMessage("completing fmas")
     sql = sql_clauses.create_fmas_complete()
     if not globals.prioritisation_on:
         sql = sql.replace(", priority", "")
-    sql = sql.replace("region", region)
-    run_nonselect_sql([sql, "DROP TABLE IF EXISTS " + region + "_fmas_combined;"])
+    sql = sql.replace("region", region_or_asset_name)
+    run_nonselect_sql([sql, "DROP TABLE IF EXISTS " + region_or_asset_name + "_fmas_combined;"])
     iface.mainWindow().statusBar().showMessage("")
     if globals.prioritisation_on:
-        load_postgis_layer(region + "_fmas_complete", "fma, priority")
+        load_postgis_layer(region_or_asset_name + "_fmas_complete", "fma, priority")
     else:
-        load_postgis_layer(region + "_fmas_complete", "fma")
+        load_postgis_layer(region_or_asset_name + "_fmas_complete", "fma")
 
 
 ##########################################################################
@@ -989,7 +1034,7 @@ def open_report(type):
     # type is one of 'preferred_region', 'all_regions', 'brmzs'
     # Called by rfm_planner.report_preferred_region_action.triggered
     if type == "preferred_region":
-        region_info = get_region_info()
+        region_info = get_region_report_info()
         region = globals.preferred_region.lower().replace(" ", "_")
         if table_exists(region + "_default_thresholds"):
             region_specific_thresholds = True
@@ -1014,10 +1059,27 @@ def open_report(type):
     #        qgis.utils.iface.brmz_report = rfm_planner_dialogs.BRMZsReportDialog(brmz_info)
     #        qgis.utils.iface.brmz_report.show()
     
+def open_named_asset_report(named_asset):
+    region = globals.preferred_region.lower().replace(" ", "_")
+    if table_exists(region + "_default_thresholds"):
+        region_specific_thresholds = True
+    else:
+        region_specific_thresholds = False
+    named_asset_report_info = create_report_data(region, region_specific_thresholds, named_asset)
+    qgis.utils.iface.single_region_report = rfm_planner_dialogs.SingleRegionReportDialog(named_asset, named_asset_report_info, region_specific_thresholds)
+    tbl_widget = qgis.utils.iface.single_region_report.tbl_fma_type
+    header = tbl_widget.horizontalHeader()
+    for i in range(7):
+        header.setResizeMode(i, QHeaderView.ResizeToContents)
+    qgis.utils.iface.single_region_report.setWindowFlags(Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint)
+    qgis.utils.iface.single_region_report.setWindowState(Qt.WindowActive)
+    qgis.utils.iface.single_region_report.show()
+    qgis.utils.iface.single_region_report.activateWindow()
+    
 def toggle_district_report(index):
     QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
     if index == 0:
-        region_info = get_region_info()
+        region_info = get_region_report_info()
         qgis.utils.iface.single_region_report.region_info = region_info
         qgis.utils.iface.single_region_report.tbl_fma_type.setRowCount(0)
         qgis.utils.iface.single_region_report.fill_tables()
@@ -1041,7 +1103,7 @@ def list_indicative_fuel_thresholds():
     qgis.utils.iface.indic_thresholds_report = rfm_planner_dialogs.IndicTholdDialog(thresholds_list)
     qgis.utils.iface.indic_thresholds_report.show()
 
-def get_region_info(region=None):
+def get_region_report_info(region=None):
     # Called by open_report
     QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
     if globals.preferred_region == "All of WA":
@@ -1105,8 +1167,65 @@ def get_region_info(region=None):
     QApplication.restoreOverrideCursor()
     return final_rows
 
-def create_report_data(region, region_specific_thresholds):
-    # Called by get_region_info, get_brmz_info
+def create_report_data(region, region_specific_thresholds, named_asset=""):
+    # Called by get_region_report_info, get_brmz_info
+    if named_asset == "":
+        QMessageBox.information(None, "Calculating report", "The system needs to do some complex calculations which may take several minutes, especially if you have spatially varying fuel age thresholds / targets.")
+    QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+    if named_asset == "":
+        name = region
+    else:
+        name = named_asset
+    tbl_name = name + "_summary_report_data"
+    if named_asset == "":
+        districts_sql = "SELECT admin_zone FROM districts WHERE region = '" + region + "'"
+        districts_list = [item[0].lower().replace(" ", "_") for item in run_select_sql(districts_sql)]
+        for district in districts_list:
+            sql = "DROP TABLE IF EXISTS " + region + "_underlying_report_data_" + district + " CASCADE"
+            run_nonselect_sql([sql])
+    sql_assemble_report_data_spatial_tholds_part_2_list = []
+    sql_assemble_report_data_spatial_tholds_part_3_list = []
+    sql_assemble_report_data_spatial_tholds_part_4_list = []
+
+    if region_specific_thresholds:
+        if table_exists(region + '_spatial_thresholds'):
+            sql_get_fuel_type = 'SELECT fuel_type FROM ' + region + '_spatial_thresholds'
+            fuel_types_w_spatial_tholds_string = ""
+            fuel_types_w_spatial_tholds_list = []
+            fuel_types_w_spatial_tholds = run_select_sql(sql_get_fuel_type)
+            if len(fuel_types_w_spatial_tholds) > 0:
+                for ft in fuel_types_w_spatial_tholds:
+                    fuel_types_w_spatial_tholds_string += "'" + ft[0] + "',"
+                    fuel_types_w_spatial_tholds_list.append(ft[0])
+                fuel_types_w_spatial_tholds_string = fuel_types_w_spatial_tholds_string[:-1]
+                sql_assemble_report_data = sql_clauses.assemble_report_data_spatial_tholds_part_1().replace(' name', ' ' + name).replace('region', region).replace('xxx', 'region').replace('fuel_types_w_spatial_tholds', fuel_types_w_spatial_tholds_string)
+                
+                for ft in fuel_types_w_spatial_tholds_list:
+                    # insert data for areas where no spatial, first for fuel_type_age polys w no intersection w spatial, then for those that do
+                    sql_assemble_report_data_spatial_tholds_part_2 = sql_clauses.assemble_report_data_spatial_tholds_part_2().replace(' name', ' ' + name).replace('region', region).replace('xxx', 'region').replace('fuel_type_w_spatial_thold', ft)
+                    sql_assemble_report_data_spatial_tholds_part_2_list.append(sql_assemble_report_data_spatial_tholds_part_2)
+                    sql_assemble_report_data_spatial_tholds_part_3 = sql_clauses.assemble_report_data_spatial_tholds_part_3().replace(' name', ' ' + name).replace('region', region).replace('xxx', 'region').replace('fuel_type_w_spatial_thold', ft)
+                    sql_assemble_report_data_spatial_tholds_part_3_list.append(sql_assemble_report_data_spatial_tholds_part_3)
+                    #insert data for areas where spatial
+                    sql_assemble_report_data_spatial_tholds_part_4 = sql_clauses.assemble_report_data_spatial_tholds_part_4().replace(' name', ' ' + name).replace('region', region).replace('xxx', 'region').replace('fuel_type_w_spatial_thold', ft)
+                    sql_assemble_report_data_spatial_tholds_part_4_list.append(sql_assemble_report_data_spatial_tholds_part_4)
+            else:   #May occur if table created but no rows created
+                sql_assemble_report_data = sql_clauses.assemble_report_data().replace(' name', ' ' + name).replace('region', region).replace('xxx', 'region')
+        else:
+            sql_assemble_report_data = sql_clauses.assemble_report_data().replace(' name', ' ' + name).replace('region', region).replace('xxx', 'region')
+    else:
+        sql_assemble_report_data = sql_clauses.assemble_report_data().replace('region_fuel_fma_thold_target_lookup', 'default_fuel_fma_thold_target_lookup').replace(" name", " " + name).replace("region", region).replace('xxx', 'region')
+    run_nonselect_sql([sql_assemble_report_data])
+    run_nonselect_sql(sql_assemble_report_data_spatial_tholds_part_2_list)
+    run_nonselect_sql(sql_assemble_report_data_spatial_tholds_part_3_list)
+    run_nonselect_sql(sql_assemble_report_data_spatial_tholds_part_4_list)
+    retrieve_data_sql = "SELECT * FROM name_summary_report_data".replace("name", name)
+    summary_report_data_rows = run_select_sql(retrieve_data_sql)
+    QApplication.restoreOverrideCursor()
+    return summary_report_data_rows
+
+def create_report_data_bkp(region, region_specific_thresholds):
+    # Called by get_region_report_info, get_brmz_info
     QMessageBox.information(None, "Calculating report", "The system needs to do some complex calculations which may take several minutes, especially if you have spatially varying fuel age thresholds / targets.")
     QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
     tbl_name = region + "_summary_report_data"
@@ -1190,6 +1309,100 @@ def get_brmz_info():
     
 def import_new_fuel_type():
     QMessageBox.information(None, "", "import_new_fuel_type not yet implemented")
+
+########################################
+###  CUSTOM REPORTING
+########################################
+def list_named_assets():
+    if globals.db == "spatialite":
+        debug_msg_box("This item is not designed to work when using the local spatialite database")
+        return
+    if globals.preferred_region == "All of WA":
+        debug_msg_box("This item is not designed to work when the region is set to 'All of WA'")
+        return
+    qgis.utils.iface.named_assets_form = rfm_planner_dialogs.NamedAssetSelectorDialog()
+    qgis.utils.iface.named_assets_form.show()
+    
+def get_named_assets():
+    region = globals.preferred_region.lower().replace(" ", "_")
+    names = []
+    for feature_type in ["points", "lines", "polys"]:
+        table = region + "_asset_" + feature_type
+        sql = "SELECT DISTINCT asset_name FROM " + table + " WHERE asset_name <> ''"
+        type_names = run_select_sql(sql)
+        for name in type_names:
+            if name[0] not in names:
+                names.append(name[0])
+    return sorted(names)
+
+def create_fma_single_asset(name):
+    # Controls the generation of FMAs
+    # Called by rfm_planner_dialogs.NamedAssetSelectorDialog.accept
+    if globals.db == "spatialite":
+        QApplication.restoreOverrideCursor()
+        QMessageBox.information(None, "Not available in local db", "Calculation of FMAs is not available from the local spatialite database.")
+        return
+    start = datetime.datetime.now().strftime("%H:%M:%S")
+    region = globals.preferred_region.lower().replace(" ", "_")
+    QApplication.setOverrideCursor(QCursor(QtCore.Qt.WaitCursor))
+    features_info = []
+    for feature_type in ["points", "lines", "polys"]:
+        table = region + "_asset_" + feature_type
+        sql = "SELECT '" + table + "', fma, gid FROM " + table + " WHERE asset_name = '" + name + "'"
+        features_info += run_select_sql(sql)
+    fcs_to_buffer = []
+    fma_types_in_fcs = []
+    for row in features_info:
+        if row[0] not in fcs_to_buffer:
+            fcs_to_buffer.append(row[0])
+        if row[1] not in fma_types_in_fcs:
+            fma_types_in_fcs.append(row[1])
+    intersect_layers_info = []  # Will be filled with lists of 3 items each: asset_name (text), fma_type (text) and intersect_layer (text - name of temp_intersect_tbl_name returned by calculate_buffers - e.g. ["collie", "CIB", "collie_intersects_cib"])
+    for fma_type in fma_types_in_fcs:
+        gids_list = []
+        for row in features_info:
+            if row[1] == fma_type:
+                gids_list.append(row[2])
+        gids = "(" + str(gids_list)[1:-1] + ")"
+        name_for_tables = name.lower().replace(" ", "_")
+        intersect_layer = calculate_buffers(name_for_tables, fma_type, fcs_to_buffer, named_asset=True, gids=gids)
+        if intersect_layer != "failed":
+            intersect_layers_info.append([name_for_tables, fma_type, intersect_layer])
+        else:
+            debug_msg_box("Problem with calculating buffers for " + name + ", fma type " + fma_type)
+    drop_list = process_intersects_into_fmas(intersect_layers_info)
+    combined_fmas = combine_fmas_non_overlapping_named_asset(name_for_tables, fma_types_in_fcs)      # returns name of combined_fmas layer e.g. warren_fmas_combined
+    complete_fmas(name_for_tables)
+    run_nonselect_sql(drop_list)
+    QApplication.restoreOverrideCursor()
+    return
+    
+def process_intersects_into_fmas(intersect_layers_info):
+    # At this point we have e.g. warren_intersects_cib and warren_intersects_shs; takes < 5 sec
+    drop_list = []  # Will be filled with list of interim PostGIS tables which can be dropped after completion
+    for intersect_layer_info in intersect_layers_info:
+        region_or_asset_name = intersect_layer_info[0]
+        fma_type = intersect_layer_info[1].lower()
+        intersect_layer = intersect_layer_info[2]
+        fma_layer_name = region_or_asset_name + "_fmas_" + fma_type    # e.g. warren_fmas_cib
+        iface.mainWindow().statusBar().showMessage("creating " + fma_layer_name)
+        drop_sql = "DROP TABLE IF EXISTS " + fma_layer_name + "; DROP INDEX IF EXISTS " + fma_layer_name + "_spatial_idx;"
+        drop_list.append(drop_sql)
+        drop_intersect_sql = "DROP TABLE IF EXISTS " + intersect_layer
+        drop_list.append(drop_intersect_sql)
+        if globals.prioritisation_on:
+            create_sql = "CREATE TABLE " + fma_layer_name + "(fma text, priority integer, geometry geometry(MultiPolygon, 900914));"
+            insert_sql = "INSERT INTO " + fma_layer_name + " SELECT '" + fma_type.upper() + "', priority, ST_Multi((ST_Dump(ST_Union(geometry))).geom) FROM " + intersect_layer + " GROUP BY priority;"
+        else:
+            create_sql = "CREATE TABLE " + fma_layer_name + "(fma text, geometry geometry(MultiPolygon, 900914));"
+            insert_sql = "INSERT INTO " + fma_layer_name + " SELECT '" + fma_type.upper() + "', ST_Multi((ST_Dump(ST_Union(geometry))).geom) FROM " + intersect_layer + ";"
+        index_sql = "CREATE INDEX " + fma_layer_name + "_spatial_idx ON " + fma_layer_name + " USING GIST (geometry);"
+        make_valid_sql = "UPDATE " + fma_layer_name + " SET geometry = ST_CollectionExtract(ST_MakeValid(geometry), 3) WHERE NOT ST_IsValid(geometry);"
+        run_nonselect_sql([drop_sql, create_sql, index_sql, insert_sql, make_valid_sql, "ANALYZE " + fma_layer_name])
+    # Takes about 5 sec to get here; at this point we have e.g. warren_fmas_cib and warren_fmas_shs OR collie_fmas_cib and collie_fmas_shs
+    return drop_list
+    #QApplication.restoreOverrideCursor()
+
 
 ########################################
 ###  UTILITIES (alphabetical order)
@@ -1386,8 +1599,6 @@ def update_updates_table(tbl_name, date=datetime.datetime.now().strftime("%Y-%m-
     delete_sql = "DELETE FROM table_updates WHERE table_name = '" + tbl_name + "';"
     insert_sql = "INSERT INTO table_updates VALUES('" + tbl_name + "', CURRENT_TIMESTAMP AT TIME ZONE 'australia/west');"
     run_nonselect_sql([delete_sql, insert_sql])
-
-
 
 
 ######################################

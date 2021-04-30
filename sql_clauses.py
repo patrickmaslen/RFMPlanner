@@ -3,7 +3,7 @@
 ##############################################################################################
 
 
-def assemble_report_data():
+def assemble_report_data_bkp():
     # Used where no spatially varying thresholds
     return """
     DROP VIEW IF EXISTS region_summary_report_data;
@@ -48,16 +48,62 @@ def assemble_report_data():
     GROUP BY xxx, fma_type, target, reached_th;
     """
 
+def assemble_report_data():
+    # Used where no spatially varying thresholds
+    # 'name' is replaced in rfm_libary code with either region name or asset name
+    return """
+    DROP VIEW IF EXISTS name_summary_report_data;
+    DROP TABLE IF EXISTS name_underlying_report_data;
+    
+    CREATE TABLE name_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) AS
+    SELECT rfc.fma_type, t.fuel_type, lkp.threshold_age, t.yslb, lkp.target,
+    (ST_Dump(PolygonalIntersection(ST_Buffer(rfc.geometry, 0.001), ST_Buffer(t.geometry, 0.001)))).geom AS geometry
+    FROM name_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp
+    ON t.fuel_type = lkp.fuel_type
+    WHERE rfc.fma_type = 'SHS' AND lkp.fma = 'SHS'
+    AND ST_Intersects(rfc.geometry, t.geometry) 
+    AND NOT  ST_Touches(rfc.geometry, t.geometry)
+    UNION
+    SELECT rfc.fma_type, t.fuel_type, lkp.threshold_age, t.yslb, lkp.target,
+    (ST_Dump(PolygonalIntersection(ST_Buffer(rfc.geometry, 0.001), ST_Buffer(t.geometry, 0.001)))).geom AS geometry
+    FROM name_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp
+    ON t.fuel_type = lkp.fuel_type
+    WHERE rfc.fma_type = 'CIB' AND lkp.fma = 'CIB'
+    AND ST_Intersects(rfc.geometry, t.geometry) 
+    AND NOT ST_Touches(rfc.geometry, t.geometry)
+    UNION
+    SELECT rfc.fma_type, t.fuel_type, lkp.threshold_age, t.yslb, lkp.target,
+    (ST_Dump(PolygonalIntersection(ST_Buffer(rfc.geometry, 0.001), ST_Buffer(t.geometry, 0.001)))).geom AS geometry
+    FROM name_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp
+    ON t.fuel_type = lkp.fuel_type
+    WHERE rfc.fma_type = 'LRR' AND lkp.fma = 'LRR'
+    AND ST_Intersects(rfc.geometry, t.geometry) 
+    AND NOT ST_Touches(rfc.geometry, t.geometry);
+    
+    CREATE TRIGGER trig_name_underlying_report_data_update 
+    AFTER INSERT OR UPDATE OR DELETE ON name_underlying_report_data
+    FOR EACH STATEMENT
+    EXECUTE PROCEDURE update_table_updates();
+    
+    DELETE FROM table_updates WHERE table_name = 'name_underlying_report_data';
+    INSERT INTO table_updates VALUES('name_underlying_report_data', CURRENT_TIMESTAMP AT TIME ZONE 'australia/west');
+    
+    CREATE VIEW name_summary_report_data AS
+    SELECT 'region' AS xxx , fma_type, target, CASE WHEN yslb >= threshold_age THEN TRUE ELSE FALSE END AS reached_th, SUM(ST_Area(geometry))/10000 AS area_ha
+    FROM name_underlying_report_data
+    GROUP BY xxx, fma_type, target, reached_th;
+    """
+
 def assemble_report_data_spatial_tholds_part_1():
     # Applied to fuel_types with no records in region_spatial_thresholds
     return """
-    DROP VIEW IF EXISTS region_summary_report_data;
-    DROP TABLE IF EXISTS region_underlying_report_data;
+    DROP VIEW IF EXISTS name_summary_report_data;
+    DROP TABLE IF EXISTS name_underlying_report_data;
     
-    CREATE TABLE region_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) AS
+    CREATE TABLE name_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) AS
     SELECT rfc.fma_type, t.fuel_type, lkp.threshold_age, t.yslb, lkp.target,
     (ST_Dump(PolygonalIntersection(ST_Buffer(rfc.geometry, 0.001), ST_Buffer(t.geometry, 0.001)))).geom AS geometry
-    FROM region_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp
+    FROM name_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp
     ON t.fuel_type = lkp.fuel_type
     WHERE rfc.fma_type = 'SHS' AND lkp.fma = 'SHS' AND t.fuel_type NOT IN (fuel_types_w_spatial_tholds)
     AND ST_Intersects(rfc.geometry, t.geometry) 
@@ -65,7 +111,7 @@ def assemble_report_data_spatial_tholds_part_1():
     UNION
     SELECT rfc.fma_type, t.fuel_type, lkp.threshold_age, t.yslb, lkp.target,
     (ST_Dump(PolygonalIntersection(ST_Buffer(rfc.geometry, 0.001), ST_Buffer(t.geometry, 0.001)))).geom AS geometry
-    FROM region_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp
+    FROM name_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp
     ON t.fuel_type = lkp.fuel_type
     WHERE rfc.fma_type = 'CIB' AND lkp.fma = 'CIB' AND t.fuel_type NOT IN (fuel_types_w_spatial_tholds)
     AND ST_Intersects(rfc.geometry, t.geometry) 
@@ -73,23 +119,23 @@ def assemble_report_data_spatial_tholds_part_1():
     UNION
     SELECT rfc.fma_type, t.fuel_type, lkp.threshold_age, t.yslb, lkp.target,
     (ST_Dump(PolygonalIntersection(ST_Buffer(rfc.geometry, 0.001), ST_Buffer(t.geometry, 0.001)))).geom AS geometry
-    FROM region_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp
+    FROM name_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp
     ON t.fuel_type = lkp.fuel_type
     WHERE rfc.fma_type = 'LRR' AND lkp.fma = 'LRR' AND t.fuel_type NOT IN (fuel_types_w_spatial_tholds)
     AND ST_Intersects(rfc.geometry, t.geometry) 
     AND NOT  ST_Touches(rfc.geometry, t.geometry);
     
-    CREATE TRIGGER trig_region_underlying_report_data_update 
-    AFTER INSERT OR UPDATE OR DELETE ON region_underlying_report_data
+    CREATE TRIGGER trig_name_underlying_report_data_update 
+    AFTER INSERT OR UPDATE OR DELETE ON name_underlying_report_data
     FOR EACH STATEMENT
     EXECUTE PROCEDURE update_table_updates();
     
-    DELETE FROM table_updates WHERE table_name = 'region_underlying_report_data';
-    INSERT INTO table_updates VALUES('region_underlying_report_data', CURRENT_TIMESTAMP AT TIME ZONE 'australia/west');
+    DELETE FROM table_updates WHERE table_name = 'name_underlying_report_data';
+    INSERT INTO table_updates VALUES('name_underlying_report_data', CURRENT_TIMESTAMP AT TIME ZONE 'australia/west');
     
-    CREATE VIEW region_summary_report_data AS
+    CREATE VIEW name_summary_report_data AS
     SELECT 'region' AS xxx , fma_type, target, CASE WHEN yslb >= threshold_age THEN TRUE ELSE FALSE END AS reached_th, SUM(ST_Area(geometry))/10000 AS area_ha
-    FROM region_underlying_report_data
+    FROM name_underlying_report_data
     GROUP BY xxx, fma_type, target, reached_th;
     """
 
@@ -97,28 +143,28 @@ def assemble_report_data_spatial_tholds_part_2():
     # Applied to fuel_types WITH record(s) in region_spatial_thresholds
     # Incudes full geometry of fuel_type_age polys which DO NOT INTERSECT spatial thresholds for that veg type
     return """
-    INSERT INTO region_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) 
+    INSERT INTO name_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) 
     SELECT rfc.fma_type, t.fuel_type, lkp.threshold_age, t.yslb, lkp.target,
     (ST_Dump(PolygonalIntersection(ST_Buffer(rfc.geometry, 0.001), ST_Buffer(t.geometry, 0.001)))).geom AS geometry
-    FROM region_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp 
+    FROM name_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp 
     ON t.fuel_type = lkp.fuel_type JOIN region_spatial_thresholds sp ON lkp.fuel_type = sp.fuel_type
     WHERE rfc.fma_type = 'SHS' AND lkp.fma = 'SHS' AND t.fuel_type = 'fuel_type_w_spatial_thold'
     AND ST_Intersects(rfc.geometry, t.geometry)
     AND NOT ST_Intersects(t.geometry, sp.geometry);
     
-    INSERT INTO region_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) 
+    INSERT INTO name_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) 
     SELECT rfc.fma_type, t.fuel_type, lkp.threshold_age, t.yslb, lkp.target,
     (ST_Dump(PolygonalIntersection(ST_Buffer(rfc.geometry, 0.001), ST_Buffer(t.geometry, 0.001)))).geom AS geometry
-    FROM region_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp 
+    FROM name_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp 
     ON t.fuel_type = lkp.fuel_type JOIN region_spatial_thresholds sp ON lkp.fuel_type = sp.fuel_type
     WHERE rfc.fma_type = 'CIB' AND lkp.fma = 'CIB' AND t.fuel_type = 'fuel_type_w_spatial_thold'
     AND ST_Intersects(rfc.geometry, t.geometry)
     AND NOT ST_Intersects(t.geometry, sp.geometry);
     
-    INSERT INTO region_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) 
+    INSERT INTO name_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) 
     SELECT rfc.fma_type, t.fuel_type, lkp.threshold_age, t.yslb, lkp.target,
     (ST_Dump(PolygonalIntersection(ST_Buffer(rfc.geometry, 0.001), ST_Buffer(t.geometry, 0.001)))).geom AS geometry
-    FROM region_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp 
+    FROM name_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp 
     ON t.fuel_type = lkp.fuel_type JOIN region_spatial_thresholds sp ON lkp.fuel_type = sp.fuel_type
     WHERE rfc.fma_type = 'LRR' AND lkp.fma = 'LRR' AND t.fuel_type = 'fuel_type_w_spatial_thold'
     AND ST_Intersects(rfc.geometry, t.geometry)
@@ -129,10 +175,10 @@ def assemble_report_data_spatial_tholds_part_3():
     # Applied to fuel_types WITH record(s) in region_spatial_thresholds
     # Incudes the NON-INTERSECTING part of geometries of fuel_type_age polys which DO intersect spatial thresholds for that veg type
     return """
-    INSERT INTO region_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) 
+    INSERT INTO name_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) 
     SELECT rfc.fma_type, t.fuel_type, lkp.threshold_age, t.yslb, lkp.target,
     (ST_Dump(PolygonalIntersection(rfc.geometry, ST_Difference(t.geometry, sp.geometry)))).geom AS geometry
-    FROM region_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp 
+    FROM name_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp 
     ON t.fuel_type = lkp.fuel_type JOIN region_spatial_thresholds sp ON lkp.fuel_type = sp.fuel_type
     WHERE rfc.fma_type = 'SHS' AND lkp.fma = 'SHS' 
     AND t.fuel_type = 'fuel_type_w_spatial_thold' AND lkp.fuel_type = 'fuel_type_w_spatial_thold' AND sp.fuel_type = 'fuel_type_w_spatial_thold'
@@ -141,10 +187,10 @@ def assemble_report_data_spatial_tholds_part_3():
     AND ST_Overlaps(t.geometry, sp.geometry)
     AND ST_Intersects(rfc.geometry, sp.geometry);
     
-    INSERT INTO region_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) 
+    INSERT INTO name_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) 
     SELECT rfc.fma_type, t.fuel_type, lkp.threshold_age, t.yslb, lkp.target,
     (ST_Dump(PolygonalIntersection(ST_Buffer(rfc.geometry, 0), ST_Difference(t.geometry, sp.geometry)))).geom AS geometry
-    FROM region_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp 
+    FROM name_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp 
     ON t.fuel_type = lkp.fuel_type JOIN region_spatial_thresholds sp ON lkp.fuel_type = sp.fuel_type
     WHERE rfc.fma_type = 'CIB' AND lkp.fma = 'CIB' 
     AND t.fuel_type = 'fuel_type_w_spatial_thold' AND lkp.fuel_type = 'fuel_type_w_spatial_thold' AND sp.fuel_type = 'fuel_type_w_spatial_thold'
@@ -153,10 +199,10 @@ def assemble_report_data_spatial_tholds_part_3():
     AND ST_Overlaps(t.geometry, sp.geometry)
     AND ST_Intersects(rfc.geometry, sp.geometry);
     
-    INSERT INTO region_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) 
+    INSERT INTO name_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) 
     SELECT rfc.fma_type, t.fuel_type, lkp.threshold_age, t.yslb, lkp.target,
     (ST_Dump(PolygonalIntersection(ST_Buffer(rfc.geometry, 0), ST_Difference(t.geometry, sp.geometry)))).geom AS geometry
-    FROM region_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp 
+    FROM name_fmas_complete rfc, region_fuel_type_age t JOIN region_fuel_fma_thold_target_lookup lkp 
     ON t.fuel_type = lkp.fuel_type JOIN region_spatial_thresholds sp ON lkp.fuel_type = sp.fuel_type
     WHERE rfc.fma_type = 'LRR' AND lkp.fma = 'LRR' 
     AND t.fuel_type = 'fuel_type_w_spatial_thold' AND lkp.fuel_type = 'fuel_type_w_spatial_thold' AND sp.fuel_type = 'fuel_type_w_spatial_thold'
@@ -170,10 +216,10 @@ def assemble_report_data_spatial_tholds_part_4():
     # Applied to fuel_types WITH record(s) in region_spatial_thresholds
     # Incudes the INTERSECTING part of geometries of fuel_type_age polys which DO intersect spatial thresholds for that veg type
     return """
-    INSERT INTO region_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) 
+    INSERT INTO name_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) 
     SELECT rfc.fma_type, t.fuel_type, sp.threshold_age, t.yslb, sp.shs_target,
     (ST_Dump(PolygonalIntersection(sp.geometry, PolygonalIntersection(ST_Buffer(rfc.geometry, 0), ST_Buffer(t.geometry, 0.001))))).geom AS geometry
-    FROM region_fmas_complete rfc, region_fuel_type_age t JOIN region_spatial_thresholds sp ON t.fuel_type = sp.fuel_type
+    FROM name_fmas_complete rfc, region_fuel_type_age t JOIN region_spatial_thresholds sp ON t.fuel_type = sp.fuel_type
     WHERE rfc.fma_type = 'SHS'
     AND t.fuel_type = 'fuel_type_w_spatial_thold'AND sp.fuel_type = 'fuel_type_w_spatial_thold'
     AND ST_Intersects(rfc.geometry, t.geometry) 
@@ -181,10 +227,10 @@ def assemble_report_data_spatial_tholds_part_4():
     AND ST_Intersects(t.geometry, sp.geometry)
     AND NOT ST_Touches(t.geometry, sp.geometry);
     
-    INSERT INTO region_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) 
+    INSERT INTO name_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) 
     SELECT rfc.fma_type, t.fuel_type, sp.threshold_age, t.yslb, sp.cib_target,
     (ST_Dump(PolygonalIntersection(sp.geometry, PolygonalIntersection(ST_Buffer(rfc.geometry, 0), ST_Buffer(t.geometry, 0.001))))).geom AS geometry
-    FROM region_fmas_complete rfc, region_fuel_type_age t JOIN region_spatial_thresholds sp ON t.fuel_type = sp.fuel_type
+    FROM name_fmas_complete rfc, region_fuel_type_age t JOIN region_spatial_thresholds sp ON t.fuel_type = sp.fuel_type
     WHERE rfc.fma_type = 'CIB' 
     AND t.fuel_type = 'fuel_type_w_spatial_thold' AND sp.fuel_type = 'fuel_type_w_spatial_thold'
     AND ST_Intersects(rfc.geometry, t.geometry) 
@@ -192,10 +238,10 @@ def assemble_report_data_spatial_tholds_part_4():
     AND ST_Intersects(t.geometry, sp.geometry)
     AND NOT ST_Touches(t.geometry, sp.geometry);
     
-    INSERT INTO region_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) 
+    INSERT INTO name_underlying_report_data(fma_type, fuel_type, threshold_age, yslb, target, geometry) 
     SELECT rfc.fma_type, t.fuel_type, sp.threshold_age, t.yslb, sp.lrr_target,
     (ST_Dump(PolygonalIntersection(sp.geometry, PolygonalIntersection(ST_Buffer(rfc.geometry, 0), ST_Buffer(t.geometry, 0.001))))).geom AS geometry
-    FROM region_fmas_complete rfc, region_fuel_type_age t JOIN region_spatial_thresholds sp ON t.fuel_type = sp.fuel_type
+    FROM name_fmas_complete rfc, region_fuel_type_age t JOIN region_spatial_thresholds sp ON t.fuel_type = sp.fuel_type
     WHERE rfc.fma_type = 'LRR'
     AND t.fuel_type = 'fuel_type_w_spatial_thold' AND sp.fuel_type = 'fuel_type_w_spatial_thold'
     AND ST_Intersects(rfc.geometry, t.geometry) 

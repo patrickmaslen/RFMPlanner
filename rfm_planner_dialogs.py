@@ -31,7 +31,7 @@ from PyQt4.QtGui import QApplication, QBrush, QColor, QCursor, QDialog, QFileDia
 import qgis.utils
 from qgis.core import QGis, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsDataSourceURI, QgsExpression, QgsFeatureRequest, QgsMapLayerRegistry, QgsVectorLayer
 from qgis.gui import QgsFieldProxyModel, QgsHighlight, QgsMapLayerProxyModel
-from forms import add_existing_data, asset_table_selector, brmzs_report, create_region_assets, delete_assets, detailed_editor, edit_record, group_editor, fma_grouping_selector, region_report, show_thresholds, update_threshold
+from forms import add_existing_data, asset_name_selector, asset_table_selector, brmzs_report, create_region_assets, delete_assets, detailed_editor, edit_record, group_editor, fma_grouping_selector, region_report, show_thresholds, update_threshold
 import rfm_library
 from rfm_library import debug_msg_box as debug
 import globals
@@ -511,8 +511,8 @@ class AssetTableSelectorDialog(QDialog, asset_table_selector.Ui_SelectExistingAs
         else:
             grouping = None
         return grouping
-        
-        
+
+
 class CreateRegionAssetsDialog(QDialog, create_region_assets.Ui_CreateRegionAssetsDialog):
     def __init__(self):
         QDialog.__init__(self)
@@ -1093,7 +1093,7 @@ class SingleRegionReportDialog(QDialog, region_report.Ui_SingleRegionReportDialo
         self.region = region
         self.region_info = region_info
         self.region_specific_thresholds = region_specific_thresholds
-        self.label.setText(region + " Report")
+        self.label.setText(region.upper().replace("_", " ") + " Report")
         self.tbl_fma_type.setRowCount(0)
         self.tbl_fma_type.setColumnWidth(1, 100)
         self.tbl_fma_type.setColumnWidth(7, 130)
@@ -1374,6 +1374,29 @@ class SingleRegionReportDialog(QDialog, region_report.Ui_SingleRegionReportDialo
         QMessageBox.information(None, "Temporary file!", "The output file is stored in \nC:/Users/your_user_name/.qgis2/python/plugins/RFMPlanner/rfm_resources/report.csv and will be overwritten next time you export a report.  If you want to keep the infomation, save it as an Excel file in a location convenient for you.")
         bring_excel_to_front()
 
+
+class NamedAssetSelectorDialog(QDialog, asset_name_selector.Ui_AssetNameSelectorDialog):
+    def __init__(self):
+        QDialog.__init__(self)
+        self.setupUi(self)
+        named_assets = rfm_library.get_named_assets()
+        for asset in named_assets:
+            item = QListWidgetItem(asset, self.listWidget)
+            item.setCheckState(Qt.Unchecked)
+            self.listWidget.addItem(item)
+
+    def accept(self):
+        QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+        selected_assets = []
+        for i in range(self.listWidget.count()):
+            if self.listWidget.item(i).checkState() == Qt.Checked:
+                selected_assets.append(self.listWidget.item(i).text())
+        for asset in selected_assets:
+            rfm_library.create_fma_single_asset(asset)
+            name_for_tables = asset.lower().replace(" ", "_")
+            rfm_library.open_named_asset_report(name_for_tables)
+        QApplication.restoreOverrideCursor()
+        self.close()
 
 class BRMZsReportDialog(QDialog, brmzs_report.Ui_BRMZsReportDialog):
     def __init__(self, brmz_info):
