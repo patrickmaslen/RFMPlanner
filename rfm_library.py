@@ -125,7 +125,7 @@ def update_regional_assets_menu(update_assets_menu, pref_rgn_only):
     load_regional_assets_action = {}
     regional_asset_layers = get_regional_asset_layers(pref_rgn_only)
     for i in range(len(regional_asset_layers)):
-        load_regional_assets_action[i] = QAction(regional_asset_layers[i], qgis.utils.iface.mainWindow())
+        load_regional_assets_action[i] = QAction(regional_asset_layers[i], iface.mainWindow())
         update_assets_menu.addAction(load_regional_assets_action[i])
         
 def update_preferred_region_menu(preferred_region_menu):
@@ -140,7 +140,7 @@ def update_preferred_region_menu(preferred_region_menu):
     preferred_region_font.setBold(True)
     regions = ["All of WA"] + get_regions()
     for i in range(len(regions)):
-        preferred_region_action[i] = QAction(regions[i], qgis.utils.iface.mainWindow())
+        preferred_region_action[i] = QAction(regions[i], iface.mainWindow())
         if regions[i] == preferred_region:
             preferred_region_action[i].setFont(preferred_region_font)
         preferred_region_menu.addAction(preferred_region_action[i])
@@ -315,7 +315,7 @@ def create_fmas(warn_if_exists=True):
             if reply == QMessageBox.No:
                 QApplication.restoreOverrideCursor()
                 return
-        # Following line commented out but can be re-included if different fma_group_bys required (e.g.group by fma and piority)
+        # Following line commented out but can be re-included if different fma_group_bys required (e.g.group by fma and priority)
         #get_fma_tables_to_create()
         #globals.fma_group_bys = ["fma"]
         
@@ -737,9 +737,9 @@ def update_reg_default_tholds():
     
     # Open and allow edits
     thresholds_list = run_select_sql("SELECT * FROM " + reg_defaults_tbl_name + " ORDER BY pk")
-    qgis.utils.iface.indic_thresholds_report = rfm_planner_dialogs.IndicTholdDialog(thresholds_list, True, reg_defaults_tbl_name, region)
-    qgis.utils.iface.indic_thresholds_report.lbl_title.setText(globals.preferred_region + " Default Fuel Age Thresholds")
-    qgis.utils.iface.indic_thresholds_report.show()
+    iface.indic_thresholds_report = rfm_planner_dialogs.IndicTholdDialog(thresholds_list, True, reg_defaults_tbl_name, region)
+    iface.indic_thresholds_report.lbl_title.setText(globals.preferred_region + " Default Fuel Age Thresholds")
+    iface.indic_thresholds_report.show()
     QApplication.restoreOverrideCursor()
 
 def update_spat_var_tholds(fuel_type, thold_age, shs_target, cib_target, lrr_target):
@@ -1032,7 +1032,7 @@ def delete_assets():
 
 def open_report(type):
     # type is one of 'preferred_region', 'all_regions', 'brmzs'
-    # Called by rfm_planner.report_preferred_region_action.triggered
+    # Called by rfm_planner.report_preferred_region_action.triggered, model_burn_cells
     if type == "preferred_region":
         region_info = get_region_report_info()
         region = globals.preferred_region.lower().replace(" ", "_")
@@ -1041,23 +1041,23 @@ def open_report(type):
         else:
             region_specific_thresholds = False
         if region_info is not None:
-            qgis.utils.iface.single_region_report = rfm_planner_dialogs.SingleRegionReportDialog(globals.preferred_region, region_info, region_specific_thresholds)
-            tbl_widget = qgis.utils.iface.single_region_report.tbl_fma_type
+            iface.single_region_report = rfm_planner_dialogs.SingleRegionReportDialog(globals.preferred_region, region_info, region_specific_thresholds)
+            tbl_widget = iface.single_region_report.tbl_fma_type
             header = tbl_widget.horizontalHeader()
             for i in range(7):
                 header.setResizeMode(i, QHeaderView.ResizeToContents)
-            qgis.utils.iface.single_region_report.setWindowFlags(Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint)
-            qgis.utils.iface.single_region_report.setWindowState(Qt.WindowActive)
-            qgis.utils.iface.single_region_report.show()
-            qgis.utils.iface.single_region_report.activateWindow()
+            iface.single_region_report.setWindowFlags(Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint)
+            iface.single_region_report.setWindowState(Qt.WindowActive)
+            iface.single_region_report.show()
+            iface.single_region_report.activateWindow()
     elif type == "all_regions":
         debug_msg_box(type + " report not yet implemented")
     elif type == "brmzs":
         debug_msg_box(type + " report not yet implemented")
     #    brmz_info = get_brmz_info()
     #    if brmz_info is not None:
-    #        qgis.utils.iface.brmz_report = rfm_planner_dialogs.BRMZsReportDialog(brmz_info)
-    #        qgis.utils.iface.brmz_report.show()
+    #        iface.brmz_report = rfm_planner_dialogs.BRMZsReportDialog(brmz_info)
+    #        iface.brmz_report.show()
     
 def open_named_asset_report(named_asset):
     region = globals.preferred_region.lower().replace(" ", "_")
@@ -1066,26 +1066,26 @@ def open_named_asset_report(named_asset):
     else:
         region_specific_thresholds = False
     named_asset_report_info = create_report_data(region, region_specific_thresholds, named_asset)
-    qgis.utils.iface.single_region_report = rfm_planner_dialogs.SingleRegionReportDialog(named_asset, named_asset_report_info, region_specific_thresholds)
-    tbl_widget = qgis.utils.iface.single_region_report.tbl_fma_type
+    iface.single_region_report = rfm_planner_dialogs.SingleRegionReportDialog(named_asset, named_asset_report_info, region_specific_thresholds)
+    tbl_widget = iface.single_region_report.tbl_fma_type
     header = tbl_widget.horizontalHeader()
     for i in range(7):
         header.setResizeMode(i, QHeaderView.ResizeToContents)
-    qgis.utils.iface.single_region_report.setWindowFlags(Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint)
-    qgis.utils.iface.single_region_report.setWindowState(Qt.WindowActive)
-    qgis.utils.iface.single_region_report.show()
-    qgis.utils.iface.single_region_report.activateWindow()
+    iface.single_region_report.setWindowFlags(Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint)
+    iface.single_region_report.setWindowState(Qt.WindowActive)
+    iface.single_region_report.show()
+    iface.single_region_report.activateWindow()
     
 def toggle_district_report(index):
     QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
     if index == 0:
         region_info = get_region_report_info()
-        qgis.utils.iface.single_region_report.region_info = region_info
-        qgis.utils.iface.single_region_report.tbl_fma_type.setRowCount(0)
-        qgis.utils.iface.single_region_report.fill_tables()
+        iface.single_region_report.region_info = region_info
+        iface.single_region_report.tbl_fma_type.setRowCount(0)
+        iface.single_region_report.fill_tables()
     else:
         region = globals.preferred_region.lower().replace(" ", "_")
-        district_upper = qgis.utils.iface.single_region_report.cbx_districts.currentText()
+        district_upper = iface.single_region_report.cbx_districts.currentText()
         district = district_upper.lower().replace(" ", "_")
         if not table_exists(region + "_underlying_report_data_" + district):
             sql_create_dist_table = sql_clauses.create_region_name_underlying_report_data_district_name().replace('district_name', district_upper).replace('region_name', region)
@@ -1093,15 +1093,15 @@ def toggle_district_report(index):
             run_nonselect_sql([sql_create_dist_table, sql_create_dist_view])
         retrieve_data_sql = "SELECT * FROM " + region + "_summary_report_data_" + district
         district_info = run_select_sql(retrieve_data_sql)
-        qgis.utils.iface.single_region_report.region_info = district_info
-        qgis.utils.iface.single_region_report.tbl_fma_type.setRowCount(0)
-        qgis.utils.iface.single_region_report.fill_tables()
+        iface.single_region_report.region_info = district_info
+        iface.single_region_report.tbl_fma_type.setRowCount(0)
+        iface.single_region_report.fill_tables()
     QApplication.restoreOverrideCursor()
 
 def list_indicative_fuel_thresholds():
     thresholds_list = run_select_sql("SELECT * FROM fuel_type_indicative_thresholds")
-    qgis.utils.iface.indic_thresholds_report = rfm_planner_dialogs.IndicTholdDialog(thresholds_list)
-    qgis.utils.iface.indic_thresholds_report.show()
+    iface.indic_thresholds_report = rfm_planner_dialogs.IndicTholdDialog(thresholds_list)
+    iface.indic_thresholds_report.show()
 
 def get_region_report_info(region=None):
     # Called by open_report
@@ -1311,7 +1311,7 @@ def import_new_fuel_type():
     QMessageBox.information(None, "", "import_new_fuel_type not yet implemented")
 
 ########################################
-###  CUSTOM REPORTING
+###  CUSTOM REPORTING ADDED 2021
 ########################################
 def list_named_assets():
     if globals.db == "spatialite":
@@ -1320,8 +1320,8 @@ def list_named_assets():
     if globals.preferred_region == "All of WA":
         debug_msg_box("This item is not designed to work when the region is set to 'All of WA'")
         return
-    qgis.utils.iface.named_assets_form = rfm_planner_dialogs.NamedAssetSelectorDialog()
-    qgis.utils.iface.named_assets_form.show()
+    iface.named_assets_form = rfm_planner_dialogs.NamedAssetSelectorDialog()
+    iface.named_assets_form.show()
     
 def get_named_assets():
     region = globals.preferred_region.lower().replace(" ", "_")
@@ -1405,6 +1405,163 @@ def process_intersects_into_fmas(intersect_layers_info):
 
 
 ########################################
+###  BURN MODELLING ADDED 2021
+########################################
+def model_burn_cells(layer, use_selected, field):
+    #Check region_underlying_report_data exists and initialise a few variables
+    region = globals.preferred_region.lower().replace(" ", "_")
+    if table_exists(region + "_default_thresholds"):
+        region_specific_thresholds = True
+    else:
+        region_specific_thresholds = False
+    report_data_layer_name = region + "_underlying_report_data"
+    if not table_exists(report_data_layer_name):
+        reply = QMessageBox.information(None, "Report data not yet in place", "Report data needs to be calculated before burn modelling can take place.  Do you want to do this now?", QMessageBox.Yes|QMessageBox.No)
+        if reply == QMessageBox.No:
+            QApplication.restoreOverrideCursor()
+            return
+        else:
+            open_report("preferred_region")
+    else:
+        model_report_data_uri = set_up_uri(report_data_layer_name)
+        report_data_layer = QgsVectorLayer(model_report_data_uri.uri(), report_data_layer_name, 'postgres')
+        
+    # Create memory layer consisting of burn_cells in WA Albers" 
+    if not use_selected:
+        burn_cells = layer.getFeatures()
+    else:
+        burn_cells = layer.selectedFeatures()
+        if len(burn_cells) == 0:
+            QMessageBox.information(None, "No burn cells selected!", "You have chosen to process using selected burn cells, but no cells are selected.  Select one or more cells or choose the 'Use all burn cells' option")
+            QApplication.restoreOverrideCursor()
+            return
+    field_values = [burn_cell[field] for burn_cell in burn_cells]
+    field_values.sort()
+    if use_selected:
+        field_values_as_strings = ["All selected cells"] + ["Cell " + str(val) for val in field_values]
+    else:
+        field_values_as_strings = ["All cells"] + ["Cell " + str(val) for val in field_values]
+    xform = QgsCoordinateTransform(layer.crs(), QgsCoordinateReferenceSystem(albers_wa_string))
+    projected_burn_cells = []
+    for burn_cell in burn_cells:
+        feat = QgsFeature(burn_cell)
+        geom = feat.geometry()
+        geom.transform(xform)
+        feat.setGeometry(geom)
+        projected_burn_cells.append(feat)
+    burn_cells_memory_layer = create_memory_layer("burn_cells_memory_layer", layer)
+    temp_data = burn_cells_memory_layer.dataProvider()
+    temp_data.addFeatures(projected_burn_cells)
+    QgsMapLayerRegistry.instance().addMapLayer(burn_cells_memory_layer)
+    QgsMapLayerRegistry.instance().addMapLayer(report_data_layer)
+    
+    #clip underlying_report_data to each cell.
+    result = processing.runalg("qgis:intersection", report_data_layer_name, burn_cells_memory_layer, True, None)
+    QgsMapLayerRegistry.instance().removeMapLayer(burn_cells_memory_layer)
+    QgsMapLayerRegistry.instance().removeMapLayer(report_data_layer)
+    temp_layer = processing.getObject(result['OUTPUT'])
+    temp_map_layer = iface.addVectorLayer(temp_layer.source(), "Burn model", "ogr")
+    temp_map_layer.loadNamedStyle(os.path.join(rfm_resources_dir, "fuel_age_cf_fma_thold_modelling.qml"))
+    
+    # Collate data for each FMA type / target combination
+    burn_cell_overage_totals = {}
+    burn_cell_underage_totals = {}
+    for feature in temp_layer.dataProvider().getFeatures():
+        if feature['yslb'] >= feature['threshold_']:    # overage (incl = threshold)
+            if (feature['fma_type'], feature['target'], feature[field]) not in burn_cell_overage_totals:
+                burn_cell_overage_totals[(feature['fma_type'], feature['target'], feature[field])] = feature.geometry().area()/10000
+            else:
+                burn_cell_overage_totals[(feature['fma_type'], feature['target'], feature[field])] += feature.geometry().area()/10000
+        else:   # underage
+            if (feature['fma_type'], feature['target'], feature[field]) not in burn_cell_underage_totals:
+                burn_cell_underage_totals[(feature['fma_type'], feature['target'], feature[field])] = feature.geometry().area()/10000
+            else:
+                burn_cell_underage_totals[(feature['fma_type'], feature['target'], feature[field])] += feature.geometry().area()/10000
+        
+    # Copy underlying report data and modify as if burn cells send YSLB within them to 0
+    retrieve_data_sql = "SELECT * FROM region_summary_report_data".replace("region", region)
+    model_tuples = run_select_sql(retrieve_data_sql)  # starts with copy of region_summary data (but need to convert tuples to lists)
+    model_lists = get_model_lists(model_tuples, burn_cell_overage_totals, burn_cell_underage_totals)
+    #debug_msg_box(model_lists, "model_lists")
+    # Open report
+    iface.model_report = rfm_planner_dialogs.SingleRegionReportDialog(globals.preferred_region, model_lists, region_specific_thresholds, "model")
+    tbl_widget = iface.model_report.tbl_fma_type
+    header = tbl_widget.horizontalHeader()
+    for i in range(7):
+        header.setResizeMode(i, QHeaderView.ResizeToContents)
+    iface.model_report.setWindowFlags(Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint)
+    iface.model_report.setWindowState(Qt.WindowActive)
+    #iface.model_report.cbx_districts.currentIndexChanged.disconnect(toggle_district_report)
+    iface.model_report.cbx_districts.clear()
+    if len(burn_cells) < 2:
+        iface.model_report.cbx_districts.setVisible(False)
+    else:
+        iface.model_report.cbx_districts.setVisible(True)
+        iface.model_report.cbx_districts.addItems(field_values_as_strings)    
+        iface.model_report.cbx_districts.currentIndexChanged.connect(lambda: toggle_burn_cell_report(field, model_lists, model_tuples, burn_cell_overage_totals, burn_cell_underage_totals))
+    if use_selected:
+        iface.model_report.label.setText("Report based on burning selected cells in " + layer.name())
+    else:
+        iface.model_report.label.setText("Report based on burning all cells in " + layer.name())
+    iface.model_report.show()
+    iface.model_report.activateWindow()
+    
+def create_memory_layer(layer_name, template_layer=None):
+    # Creates MultiPolygon layer in Albers WA
+    memory_layer = QgsVectorLayer("MultiPolygon?crs=" + albers_wa_string, layer_name, "memory")
+    if template_layer is not None:
+        temp_data = memory_layer.dataProvider()
+        attr = template_layer.dataProvider().fields().toList()
+        temp_data.addAttributes(attr)
+        memory_layer.updateFields()
+    return memory_layer
+
+def get_model_lists(model_tuples, burn_cell_overage_totals, burn_cell_underage_totals, cell_id=None):
+    #debug_msg_box(model_tuples, "model_tuples")
+    #debug_msg_box(burn_cell_overage_totals, "burn_cell_overage_totals")
+    #debug_msg_box(burn_cell_underage_totals, "burn_cell_underage_totals")
+    model_lists = [list(model_tuple) + [0, 0] for model_tuple in model_tuples]  #Last two items will store overage area burnt and underage area burnt
+    for model_list in model_lists:
+        for item in burn_cell_overage_totals:
+            if cell_id is None:     #i.e. reporting on all cells
+                if item[0] == model_list[1] and item[1] == model_list[2]:     # fma_type & target
+                    if model_list[3] is True:      # if overage
+                        model_list[4] -= burn_cell_overage_totals[(item[0], item[1], item[2])]     # subtract area as will be yslb = 0
+                        model_list[5] += burn_cell_overage_totals[(item[0], item[1], item[2])]
+                    else:       # if below threshold
+                        model_list[4] += burn_cell_overage_totals[(item[0], item[1], item[2])]     # add area
+            else:
+                if item[0] == model_list[1] and item[1] == model_list[2] and str(item[2]) == cell_id:     # fma_type, target & cell_id
+                    if model_list[3] is True:      # if overage
+                        model_list[4] -= burn_cell_overage_totals[(item[0], item[1], item[2])]     # subtract area as will be yslb = 0
+                        model_list[5] += burn_cell_overage_totals[(item[0], item[1], item[2])]
+                    else:       # if below threshold
+                        model_list[4] += burn_cell_overage_totals[(item[0], item[1], item[2])]     # add area
+    # Populate last item showing ow much underage veg burnt
+    for model_list in model_lists:
+        for item in burn_cell_underage_totals:
+            if cell_id is None:     #i.e. reporting on all cells
+                if item[0] == model_list[1] and item[1] == model_list[2]:     # fma_type & target
+                    if model_list[3] is False:      # if underage
+                        model_list[6] += burn_cell_underage_totals[(item[0], item[1], item[2])]
+            else:
+                if item[0] == model_list[1] and item[1] == model_list[2] and str(item[2]) == cell_id:     # fma_type, target & cell_id
+                    if model_list[3] is False:      # if underage
+                        model_list[6] += burn_cell_underage_totals[(item[0], item[1], item[2])]
+    return model_lists
+                    
+def toggle_burn_cell_report(field, model_lists, model_tuples, burn_cell_overage_totals, burn_cell_underage_totals):
+    QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+    if iface.model_report.cbx_districts.currentIndex() == 0:    # i.e. show all cells
+        iface.model_report.region_info = model_lists
+    else:
+        cell_id = iface.model_report.cbx_districts.currentText()[5:]    #[5:] is to remove 'Cell ' from start of currentText
+        iface.model_report.region_info = get_model_lists(model_tuples, burn_cell_overage_totals, burn_cell_underage_totals, cell_id)
+    iface.model_report.tbl_fma_type.setRowCount(0)
+    iface.model_report.fill_tables()
+    QApplication.restoreOverrideCursor()
+
+########################################
 ###  UTILITIES (alphabetical order)
 ########################################
 
@@ -1417,10 +1574,10 @@ def call_load_postgis_layer(q, name=None):  # q is an instance of QAction
     if not layer_if_present:
         load_postgis_layer(name)
     else:
-        qgis.utils.iface.setActiveLayer(layer_if_present[0])
-    layer = qgis.utils.iface.activeLayer()
+        iface.setActiveLayer(layer_if_present[0])
+    layer = iface.activeLayer()
     layer.startEditing()
-    qgis.utils.iface.actionAddFeature().trigger()
+    iface.actionAddFeature().trigger()
     return layer
 
 def debug_msg_box(message, heading=""):
@@ -1447,11 +1604,13 @@ def get_region_dict():
 def load_postgis_layer(tbl_name, fma_grouping=None, key_column="", filter=None, title=None):
     # Called by numerous functions from rfm_library, rfm_planner_dialogs and rfm_planner
     QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
-    uri = QgsDataSourceURI()
+    """uri = QgsDataSourceURI()
     uri.setConnection(globals.rfmp_host, globals.rfmp_port, globals.rfmp_db, globals.rfmp_user, globals.rfmp_pw)
     schema = 'public'
     geom_column = 'geometry' 
     uri.setDataSource(schema, tbl_name, geom_column, "", key_column)
+    """
+    uri = set_up_uri(tbl_name, key_column)
     if title is None:
         lyr_name = tbl_name
     else:
@@ -1469,6 +1628,15 @@ def load_postgis_layer(tbl_name, fma_grouping=None, key_column="", filter=None, 
         return vlayer   # Added May 2020 for work with spatially varying thresholds
     except Exception as e:
         QMessageBox.information(None, "", e.message)
+
+def set_up_uri(tbl_name, key_column=""):
+    # Called by load_postgis_layer, model_burn_cells
+    uri = QgsDataSourceURI()
+    uri.setConnection(globals.rfmp_host, globals.rfmp_port, globals.rfmp_db, globals.rfmp_user, globals.rfmp_pw)
+    schema = 'public'
+    geom_column = 'geometry' 
+    uri.setDataSource(schema, tbl_name, geom_column, "", key_column)
+    return uri
 
 def load_spatialite_layer(tbl_name, fma_grouping=None):
     try:

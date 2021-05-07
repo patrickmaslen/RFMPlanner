@@ -323,6 +323,13 @@ class RFMPlanner:
         self.report_all_regions_action.triggered.connect(lambda: rfm_library.open_report("all_regions"))
         self.report_brmzs_action.triggered.connect(lambda: rfm_library.open_report("brmzs"))
 
+        # BURN MODELLING
+        self.burn_modelling_action = QAction("Burn Modelling", self.iface.mainWindow())
+        self.rfm_menu.addAction(self.burn_modelling_action)
+        self.burn_modelling_action.triggered.connect(self.open_burn_modelling_selector)
+        
+        self.rfm_menu.addSeparator()
+
         # Actions
         self.setup_assets_action = QAction("Initialise Region Assets", self.iface.mainWindow())
         self.setup_assets_action.triggered.connect(self.initialise_region_assets)
@@ -577,3 +584,7 @@ class RFMPlanner:
                 globals.db = 'postgis'
                 globals.conn = psycopg2.connect(globals.connection_string)
                 self.db_action.setText("Database [" + globals.db + "]")
+
+    def open_burn_modelling_selector(self):
+        burn_modelling_selector_form = rfm_planner_dialogs.BurnModellingSelectorDialog()
+        burn_modelling_selector_form.exec_()

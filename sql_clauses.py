@@ -623,7 +623,7 @@ def create_region_name_underlying_report_data_district_name():
     """
 
 def create_regional_summary_report_data():
-    # called by rfm_library.get_report_data
+    # NO LONGER USED
     return """
     DROP TABLE IF EXISTS region_name_summary_report_data;
     CREATE TABLE public.region_name_summary_report_data

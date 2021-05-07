@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'region_report.ui'
 #
-# Created: Tue Aug 04 11:07:16 2020
+# Created: Thu May 06 15:08:51 2021
 #      by: PyQt4 UI code generator 4.10.2
 #
 # WARNING! All changes made in this file will be lost!
@@ -35,7 +35,7 @@ class Ui_SingleRegionReportDialog(object):
         SingleRegionReportDialog.setMinimumSize(QtCore.QSize(808, 0))
         SingleRegionReportDialog.setModal(False)
         self.label = QtGui.QLabel(SingleRegionReportDialog)
-        self.label.setGeometry(QtCore.QRect(135, 25, 641, 26))
+        self.label.setGeometry(QtCore.QRect(135, 25, 1031, 26))
         font = QtGui.QFont()
         font.setPointSize(12)
         font.setBold(True)

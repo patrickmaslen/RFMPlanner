@@ -1,2 +1,9 @@
 Region, FMA Type, Target, Reached t'hold, Area
-south_west, SHS, 60, True, 26.6558163926
+warren, LRR, -1, False, 37.1371076639
+warren, LRR, -1, True, 55.0281489592
+warren, LRR, 30, False, 36593.7533238
+warren, LRR, 30, True, 35079.8431026
+warren, LRR, 45, False, 435360.24039
+warren, LRR, 45, True, 338741.273013
+warren, SHS, 60, False, 36766.1602688
+warren, SHS, 60, True, 26998.0437912

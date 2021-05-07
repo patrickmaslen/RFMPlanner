@@ -19,8 +19,8 @@
  *   (at your option) any later version.                                   *
  *                                                                         *
  ***************************************************************************/
-"""
 
+"""
 import os
 import subprocess
 import ogr2ogr
@@ -31,7 +31,7 @@ from PyQt4.QtGui import QApplication, QBrush, QColor, QCursor, QDialog, QFileDia
 import qgis.utils
 from qgis.core import QGis, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsDataSourceURI, QgsExpression, QgsFeatureRequest, QgsMapLayerRegistry, QgsVectorLayer
 from qgis.gui import QgsFieldProxyModel, QgsHighlight, QgsMapLayerProxyModel
-from forms import add_existing_data, asset_name_selector, asset_table_selector, brmzs_report, create_region_assets, delete_assets, detailed_editor, edit_record, group_editor, fma_grouping_selector, region_report, show_thresholds, update_threshold
+from forms import add_existing_data, asset_name_selector, asset_table_selector, brmzs_report, burn_modelling_selector, create_region_assets, delete_assets, detailed_editor, edit_record, group_editor, fma_grouping_selector, region_report, show_thresholds, update_threshold
 import rfm_library
 from rfm_library import debug_msg_box as debug
 import globals
@@ -511,6 +511,71 @@ class AssetTableSelectorDialog(QDialog, asset_table_selector.Ui_SelectExistingAs
         else:
             grouping = None
         return grouping
+
+
+class BurnModellingSelectorDialog(QDialog, burn_modelling_selector.Ui_BurnModellingSelectorDialog):
+    def __init__(self):
+        QDialog.__init__(self)
+        self.setupUi(self)
+        self.update_field_names_cbx()
+        self.rad_all_polys.setChecked(True)
+        self.rad_all_polys.toggled.connect(self.rad_toggled)
+        self.rad_map_selection.toggled.connect(self.rad_toggled)
+        self.rad_list_selection.toggled.connect(self.rad_toggled)
+        self.mMapLayerComboBox.currentIndexChanged.connect(self.update_field_names_cbx)
+        self.mFieldComboBox.currentIndexChanged.connect(self.get_values_for_field)
+        self.tableWidget.setColumnHidden(0, True)
+        self.tableWidget.setColumnWidth(1, self.tableWidget.width())
+        
+    def update_field_names_cbx(self):
+        if self.mMapLayerComboBox.currentLayer() is not None:
+            self.mFieldComboBox.setLayer(self.mMapLayerComboBox.currentLayer())
+
+    def rad_toggled(self):
+        if self.rad_list_selection.isChecked():
+            self.tableWidget.setEnabled(True)
+        else:
+            self.tableWidget.setEnabled(False)
+
+    def get_values_for_field(self):
+        if self.rad_list_selection.isChecked():
+            QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+            self.tableWidget.clear()
+            layer = self.mMapLayerComboBox.currentLayer()
+            field = self.mFieldComboBox.currentField()
+            values = []
+            for feature in layer.getFeatures():
+                values.append([feature.id(), feature[field]])
+            values.sort(key=lambda x:x[1])
+            for value in values:
+                rowPosition = self.tableWidget.rowCount()
+                self.tableWidget.insertRow(rowPosition)
+                item = QTableWidgetItem()
+                item.setData(Qt.DisplayRole, value[0])  # Because id (value[0]) is an integer
+                self.tableWidget.setItem(rowPosition , 0, item)
+                self.tableWidget.setItem(rowPosition , 1, QTableWidgetItem(str(value[1])))
+            QApplication.restoreOverrideCursor()
+
+    def accept(self):
+        if self.mFieldComboBox.currentField() == "":
+            QMessageBox.information(None, "Select name/identifier field!", "Please select an Identifier field from the second dropdown")
+            QApplication.restoreOverrideCursor()
+            return
+        field = self.mFieldComboBox.currentField()
+        QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+        layer = self.mMapLayerComboBox.currentLayer()
+        use_selected = False
+        if self.rad_map_selection.isChecked():
+            use_selected = True
+        elif self.rad_list_selection.isChecked():
+            layer.setSelectedFeatures([])
+            use_selected = True
+            rows = sorted(set(index.row() for index in self.tableWidget.selectedIndexes()))
+            burn_cells = [self.tableWidget.item(row, 0).data(Qt.DisplayRole) for row in rows]
+            layer.select(burn_cells)
+        rfm_library.model_burn_cells(layer, use_selected, field)
+        QApplication.restoreOverrideCursor()
+        self.close()
 
 
 class CreateRegionAssetsDialog(QDialog, create_region_assets.Ui_CreateRegionAssetsDialog):
@@ -1087,12 +1152,13 @@ class SelectFMAGroupingDialog(QDialog, fma_grouping_selector.Ui_SelectFMAGroupin
         
         
 class SingleRegionReportDialog(QDialog, region_report.Ui_SingleRegionReportDialog):
-    def __init__(self, region, region_info, region_specific_thresholds):
+    def __init__(self, region, region_info, region_specific_thresholds, region_or_model="region"):
         QDialog.__init__(self)
         self.setupUi(self)
         self.region = region
         self.region_info = region_info
         self.region_specific_thresholds = region_specific_thresholds
+        self.region_or_model = region_or_model
         self.label.setText(region.upper().replace("_", " ") + " Report")
         self.tbl_fma_type.setRowCount(0)
         self.tbl_fma_type.setColumnWidth(1, 100)
@@ -1107,14 +1173,19 @@ class SingleRegionReportDialog(QDialog, region_report.Ui_SingleRegionReportDialo
         ##self.tbl_brmz.cellClicked.connect(self.cell_clicked_tbl_fma_type)
         
         # Added 4-Aug-2020 to include district reporting
-        districts_sql = "SELECT admin_zone FROM districts WHERE region = '" + region.lower().replace(" ", "_") + "'"
-        districts = rfm_library.run_select_sql(districts_sql)
-        if len(districts) < 2:
-            self.cbx_districts.setVisible(False)
-        else:
-            district_list = ['Full Region'] + [dist[0] for dist in districts]
-            self.cbx_districts.addItems(district_list)
-            self.cbx_districts.currentIndexChanged.connect(rfm_library.toggle_district_report)
+        if region_or_model == "region":
+            districts_sql = "SELECT admin_zone FROM districts WHERE region = '" + region.lower().replace(" ", "_") + "'"
+            districts = rfm_library.run_select_sql(districts_sql)
+            if len(districts) < 2:
+                self.cbx_districts.setVisible(False)
+            else:
+                district_list = ['Full Region'] + [dist[0] for dist in districts]
+                self.cbx_districts.addItems(district_list)
+                self.cbx_districts.currentIndexChanged.connect(rfm_library.toggle_district_report)
+        elif region_or_model == "model":
+            self.tbl_fma_type.setHorizontalHeaderItem(6, QTableWidgetItem("Further\nburn needed"))
+            self.tbl_fma_type.setHorizontalHeaderItem(7, QTableWidgetItem("Overage burnt"))
+            self.tbl_fma_type.setHorizontalHeaderItem(8, QTableWidgetItem("Underage burnt"))
 
     def fill_tables(self):
         bold_font = QFont()
@@ -1130,6 +1201,8 @@ class SingleRegionReportDialog(QDialog, region_report.Ui_SingleRegionReportDialo
             for target in targets:
                 area = 0
                 reached = 0
+                overage_area = 0    # used in model reports only (shows overage area burnt)
+                underage_area = 0    # used in model reports only (shows unbderage area burnt)
                 #i = 0
                 for info_row in self.region_info:
                     if info_row[1] == fma_type and info_row[2] == target and info_row[4] is not None:
@@ -1141,6 +1214,9 @@ class SingleRegionReportDialog(QDialog, region_report.Ui_SingleRegionReportDialo
                             if reached_th:
                                 reached += info_row[4]
                                 total_reached += info_row[4]
+                            if self.region_or_model == "model":
+                                overage_area += info_row[5]
+                                underage_area += info_row[6]
                 if area > 0:
                     percentage = round((area - reached) * 100 / area, 1)
                 else:
@@ -1175,16 +1251,19 @@ class SingleRegionReportDialog(QDialog, region_report.Ui_SingleRegionReportDialo
                     self.tbl_fma_type.setItem(row_no, 4, QCustomTableWidgetItem(percentage))
                     self.tbl_fma_type.setItem(row_no, 5, QCustomTableWidgetItem(target))
                     self.tbl_fma_type.setItem(row_no, 6, QCustomTableWidgetItem(burn))
-                    self.tbl_fma_type.setItem(row_no, 7, QTableWidgetItem("Show this fuel"))
-                    self.tbl_fma_type.item(row_no, 7).setBackground(QColor(220, 220, 220, 255))
-                    if target != "N/A" and percentage != "N/A":
-                        self.tbl_fma_type.setItem(row_no, 8, QTableWidgetItem("Show overage"))
-                        self.tbl_fma_type.item(row_no, 8).setBackground(QColor(220, 220, 220, 255))
-                        if percentage >= target:
-                            self.tbl_fma_type.item(row_no, 4).setForeground(QColor(0, 150, 0, 255))
-                        else:
-                            self.tbl_fma_type.item(row_no, 4).setForeground(QColor(200, 0, 0, 255))
-                        
+                    if percentage >= target:
+                        self.tbl_fma_type.item(row_no, 4).setForeground(QColor(0, 150, 0, 255))
+                    else:
+                        self.tbl_fma_type.item(row_no, 4).setForeground(QColor(200, 0, 0, 255))
+                    if self.region_or_model == "region":
+                        self.tbl_fma_type.setItem(row_no, 7, QTableWidgetItem("Show this fuel"))
+                        self.tbl_fma_type.item(row_no, 7).setBackground(QColor(220, 220, 220, 255))
+                        if target != "N/A" and percentage != "N/A":
+                            self.tbl_fma_type.setItem(row_no, 8, QTableWidgetItem("Show overage"))
+                            self.tbl_fma_type.item(row_no, 8).setBackground(QColor(220, 220, 220, 255))
+                    elif self.region_or_model == "model":
+                        self.tbl_fma_type.setItem(row_no, 7, QCustomTableWidgetItem(int(round(overage_area))))
+                        self.tbl_fma_type.setItem(row_no, 8, QCustomTableWidgetItem(int(round(underage_area))))
         # Add totals
         total_area = int(round(total_area, 0))
         total_reached = int(round(total_reached, 0))
@@ -1332,6 +1411,8 @@ class SingleRegionReportDialog(QDialog, region_report.Ui_SingleRegionReportDialo
                 fuel_types_string += "* " + row[0] + "\n"
             QMessageBox.information(None, "Threshold veg type info", heading + fuel_types_string)
         elif column == 7:
+            if self.region_or_model == "model":
+                return      # Only applies to region report
             # Prob insert code to check whether already loaded - but need to incorporate FMA/target filter
             #filter_expression = QgsExpression("fma_type = '" + fma_type + "' AND target = " + target)
             if target != 'N/A':
@@ -1343,6 +1424,8 @@ class SingleRegionReportDialog(QDialog, region_report.Ui_SingleRegionReportDialo
             rfm_library.load_postgis_layer(self.region.lower().replace(" ", "_") + "_underlying_report_data", None, None, filter, title)
             
         elif column == 8:
+            if self.region_or_model == "model":
+                return      # Only applies to region report
             # Prob insert code to check whether already loaded - but need to incorporate FMA/target filter
             #filter_expression = QgsExpression("fma_type = '" + fma_type + "' AND target = " + target)
             filter = "fma_type = '" + fma_type + "' AND target = " + target + " AND yslb >= threshold_age"
@@ -1397,6 +1480,7 @@ class NamedAssetSelectorDialog(QDialog, asset_name_selector.Ui_AssetNameSelector
             rfm_library.open_named_asset_report(name_for_tables)
         QApplication.restoreOverrideCursor()
         self.close()
+
 
 class BRMZsReportDialog(QDialog, brmzs_report.Ui_BRMZsReportDialog):
     def __init__(self, brmz_info):
