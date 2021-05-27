@@ -7,11 +7,11 @@
 # This file should be included when you package your plugin.# Mandatory items:
 
 [general]
-name=RFM Planner Dev
+name=RFM Planner UAT
 qgisMinimumVersion=2.18
 description=Regional Fire Management Plan tool
-version=1.4.7dev
-release_date=07-Aug-2099
+version=1.4.8uat
+release_date=12-May-2021
 author=Patrick Maslen, Department of Biodiversity, Conservation and Attractions, Western Australia
 email=Patrick.Maslen@dbca.wa.gov.au
 

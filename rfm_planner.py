@@ -189,18 +189,18 @@ class RFMPlanner:
             globals.uat = True
         menu_title = "RFM Planning"
         if globals.dev:
-            menu_title += " DEV"
+            #menu_title += " DEV"
+            pass
         elif globals.uat:
             menu_title += " UAT"
         
         # Following two lines make RFM Tools accessible from a top-level menu
         self.rfm_menu = QMenu(menu_title)
         if globals.dev:
-            self.rfm_menu.setStyleSheet("QMenu{background-color: red;}")
+            #self.rfm_menu.setStyleSheet("QMenu{background-color: red;}")
+            pass
         elif globals.uat:
             self.rfm_menu.setStyleSheet("QMenu{background-color: orange;}")
-        elif globals.test:
-            self.rfm_menu.setStyleSheet("QMenu{background-color: blue;}")
         self.iface.mainWindow().menuBar().insertMenu(self.iface.firstRightStandardMenu().menuAction(), self.rfm_menu)
         self.rfm_menu.aboutToShow.connect(lambda: rfm_library.initialise_settings(self))
 
